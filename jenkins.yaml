@@ -1,0 +1,85 @@
+---
+- name: Ssh waiting
+  hosts: all
+  gather_facts: False
+  tasks:
+    - name: waiting...
+      wait_for:
+        port: 22
+        delay: 5
+        search_regex: OpenSSH
+        host: '{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}'
+      vars:
+        ansible_connection: local
+
+- name: Install docker / python3 / docker-compose
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update
+      apt: update_cache=yes cache_valid_time=3600
+    - name: install docker
+      apt: 
+        name: 
+          - docker
+          - python3
+          - docker-compose
+          - python3-pip
+        state: present
+    - name: Start docker daemon
+      systemd:
+        name: docker
+        state: started
+    - name: usermod for docker
+      user:
+        name: jenkins
+        groups: docker
+        append: yes
+    - name: Install docker python module
+      pip:
+        name: 
+          - docker
+          - docker-compose
+    - name: Copy jenkins Dockerfile on server
+      ansible.builtin.copy:
+        src: ./jenkins/Dockerfile
+        dest: /home/jenkins/Dockerfile
+        owner: jenkins
+        group: jenkins
+        mode: '0700'
+    - name: Copy jenkins compose file on server
+      ansible.builtin.copy:
+        src: ./jenkins/docker-compose.yaml
+        dest: /home/jenkins/docker-compose.yaml
+        owner: jenkins
+        group: jenkins
+        mode: '0700'
+    - name: Create a directory for jenkins-data
+      ansible.builtin.file:
+        path: /home/jenkins/jenkins-data
+        state: directory
+        owner: jenkins
+        mode: '0700'
+    - name: Create a directory for jenkins-docker-cert
+      ansible.builtin.file:
+        path: /home/jenkins/jenkins-docker-cert
+        state: directory
+        owner: jenkins
+        mode: '0700'
+    - name: Create a directory for jenkins extra
+      ansible.builtin.file:
+        path: /home/jenkins/extras
+        state: directory
+        owner: jenkins
+        mode: '0700'
+
+- name: Start docker-compose as jenkins user
+  hosts: all
+  become: yes
+  become_user: jenkins
+  tasks:      
+    - name: build and start jenkins with docker
+      community.docker.docker_compose:
+        build: yes
+        project_src: my_jenkins
+        files: /home/jenkins/docker-compose.yaml
