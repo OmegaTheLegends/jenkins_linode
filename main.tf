@@ -8,7 +8,9 @@ terraform {
 }
 
 variable api_token {}
-variable root_pswd {}
+variable root_pswd {
+  default = "SomeStrongPassword"
+}
 
 # Configure the Linode Provider
 provider "linode" {
@@ -63,7 +65,6 @@ resource "null_resource" "jenkins_setup" {
         ip = linode_instance.jenkins.ip_address
     }
     provisioner "local-exec" {
-        working_dir = "/opt/ansible/"
         command = "ansible-playbook --inventory ${linode_instance.jenkins.ip_address}, jenkins.yaml"
     }
 }
